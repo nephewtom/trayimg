@@ -1,5 +1,6 @@
 **/obj/
 **/*.exe
 **/imgui.ini
+.cache/
 
 rlImGui/src/librlImGui.a

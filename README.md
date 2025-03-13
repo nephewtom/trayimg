@@ -23,8 +23,9 @@ or
 winget install BrechtSanders.WinLibs.POSIX.UCRT.LLVM 
 ```
 which also includes other useful tools.
-
 If you pick LLVM package you will also get LLVM Compiler infrastructure.
+
+Add the compiler bin/ directory to you Windows PATH.
 
 #### Compile raylib & rlImGui ####
 
