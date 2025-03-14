@@ -61,11 +61,15 @@ int main(void)
     // Animation state
     bool isAnimating = false;
     float animationTime = 0.0f;
-    const float ANIMATION_WALK_DURATION = 0.5f; // Doubled from 2.0f to 4.0f for even slower movement
+    const float ANIMATION_WALK_DURATION = 0.5f;
     Quaternion currentRotation = QuaternionIdentity();
     Quaternion targetRotation = QuaternionIdentity();
-    Vector3 currentPosition = {0.5f, 0.5f, 0.5f};  // Starting position
-    Vector3 targetPosition = {-0.5f, 0.5f, 0.5f};  // Initial target position
+    Vector3 currentPosition = {0.5f, 0.5f, 0.5f};
+    Vector3 targetPosition = {-0.5f, 0.5f, 0.5f};
+    
+    // Movement queue
+    bool hasQueuedMovement = false;
+    int queuedKey = 0;  // Store the last pressed key
 
     // Initial cube position
     cubeTransform.translation.y = 0.5f;
@@ -108,36 +112,41 @@ int main(void)
         camera.position.z = camera.target.z + cameraDistance * cosf(cameraAngleY) * cosf(cameraAngleX);
 
         // Handle W key press to start animation
-        if (!isAnimating) {  // Only allow movement when not already animating
-            if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_S) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_D)) {
+        if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_S) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_D)) {
+            int pressedKey = IsKeyPressed(KEY_W) ? KEY_W :
+                           IsKeyPressed(KEY_S) ? KEY_S :
+                           IsKeyPressed(KEY_A) ? KEY_A : KEY_D;
+                           
+            if (!isAnimating) {
+                // Start animation immediately if not already animating
                 isAnimating = true;
                 animationTime = 0.0f;
-            }
-            if (IsKeyPressed(KEY_W)){
-                targetPosition = currentPosition + (Vector3){-1.0f, 0.0f, 0.0f};
-                currentRotation = cubeTransform.rotation;
                 
-                // Rotate +90 degrees around Z axis to roll towards -X
-                targetRotation = QuaternionFromAxisAngle((Vector3){0, 0, 1}, 90.0f * DEG2RAD);
-            }
-            if (IsKeyPressed(KEY_S)){
-                targetPosition = currentPosition + (Vector3){1.0f, 0.0f, 0.0f};
-                currentRotation = cubeTransform.rotation;
-                
-                // Rotate +90 degrees around Z axis to roll towards -X
-                targetRotation = QuaternionFromAxisAngle((Vector3){0, 0, 1}, -90.0f * DEG2RAD);
-            }
-            if (IsKeyPressed(KEY_A)){
-                targetPosition = currentPosition + (Vector3){0.0f, 0.0f, 1.0f};
-                currentRotation = cubeTransform.rotation;
-                
-                targetRotation = QuaternionFromAxisAngle((Vector3){1, 0, 0}, 90.0f * DEG2RAD);
-            }
-            if (IsKeyPressed(KEY_D)){
-                targetPosition = currentPosition + (Vector3){0.0f, 0.0f, -1.0f};
-                currentRotation = cubeTransform.rotation;
-                
-                targetRotation = QuaternionFromAxisAngle((Vector3){1, 0, 0}, -90.0f * DEG2RAD);
+                // Process the movement
+                if (pressedKey == KEY_W) {
+                    targetPosition = currentPosition + (Vector3){-1.0f, 0.0f, 0.0f};
+                    currentRotation = cubeTransform.rotation;
+                    targetRotation = QuaternionFromAxisAngle((Vector3){0, 0, 1}, 90.0f * DEG2RAD);
+                }
+                else if (pressedKey == KEY_S) {
+                    targetPosition = currentPosition + (Vector3){1.0f, 0.0f, 0.0f};
+                    currentRotation = cubeTransform.rotation;
+                    targetRotation = QuaternionFromAxisAngle((Vector3){0, 0, 1}, -90.0f * DEG2RAD);
+                }
+                else if (pressedKey == KEY_A) {
+                    targetPosition = currentPosition + (Vector3){0.0f, 0.0f, 1.0f};
+                    currentRotation = cubeTransform.rotation;
+                    targetRotation = QuaternionFromAxisAngle((Vector3){1, 0, 0}, 90.0f * DEG2RAD);
+                }
+                else if (pressedKey == KEY_D) {
+                    targetPosition = currentPosition + (Vector3){0.0f, 0.0f, -1.0f};
+                    currentRotation = cubeTransform.rotation;
+                    targetRotation = QuaternionFromAxisAngle((Vector3){1, 0, 0}, -90.0f * DEG2RAD);
+                }
+            } else {
+                // Queue the movement for when current animation ends
+                hasQueuedMovement = true;
+                queuedKey = pressedKey;
             }
         }
 
@@ -152,6 +161,35 @@ int main(void)
                 isAnimating = false;
                 currentPosition = targetPosition;
                 cubeTransform.rotation = QuaternionIdentity();
+                
+                // If there's a queued movement, start it immediately
+                if (hasQueuedMovement) {
+                    isAnimating = true;
+                    animationTime = 0.0f;
+                    hasQueuedMovement = false;
+                    
+                    // Process the queued movement
+                    if (queuedKey == KEY_W) {
+                        targetPosition = currentPosition + (Vector3){-1.0f, 0.0f, 0.0f};
+                        currentRotation = cubeTransform.rotation;
+                        targetRotation = QuaternionFromAxisAngle((Vector3){0, 0, 1}, 90.0f * DEG2RAD);
+                    }
+                    else if (queuedKey == KEY_S) {
+                        targetPosition = currentPosition + (Vector3){1.0f, 0.0f, 0.0f};
+                        currentRotation = cubeTransform.rotation;
+                        targetRotation = QuaternionFromAxisAngle((Vector3){0, 0, 1}, -90.0f * DEG2RAD);
+                    }
+                    else if (queuedKey == KEY_A) {
+                        targetPosition = currentPosition + (Vector3){0.0f, 0.0f, 1.0f};
+                        currentRotation = cubeTransform.rotation;
+                        targetRotation = QuaternionFromAxisAngle((Vector3){1, 0, 0}, 90.0f * DEG2RAD);
+                    }
+                    else if (queuedKey == KEY_D) {
+                        targetPosition = currentPosition + (Vector3){0.0f, 0.0f, -1.0f};
+                        currentRotation = cubeTransform.rotation;
+                        targetRotation = QuaternionFromAxisAngle((Vector3){1, 0, 0}, -90.0f * DEG2RAD);
+                    }
+                }
             } else {
                 // Interpolate rotation and position
                 float smoothT = t * t * (3.0f - 2.0f * t); // Smooth interpolation
