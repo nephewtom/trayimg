@@ -67,30 +67,8 @@ int main(void)
 	Vector3 currentPosition = {0.5f, 0.5f, 0.5f};  // Starting position
 	Vector3 targetPosition = {-0.5f, 0.5f, 0.5f};  // Initial target position
 
-	// Jump mechanics
-	const float JUMP_FORCE = 8.0f;
-	const float GRAVITY = -8.0f;
-	float verticalVelocity = 0.0f;
-	const float GROUND_Y = 0.0f;        // Ground plane is at 0.0f (the grid)
-	const float CUBE_HALF_SIZE = 0.5f;  // Half the size of the cube
-	bool isJumping = false;
-	bool hasMovedInAir = false;
-
-	// Squash and stretch parameters
-	const float SQUASH_AMOUNT = 0.3f;     // Reduced squash for less extreme compression
-	const float STRETCH_AMOUNT = 0.8f;     // Increased for more dramatic stretch
-	const float SQUASH_DURATION = 0.15f;   // Slightly faster squash
-	const float VERTICAL_STRETCH_MULT = 3.0f;  // More vertical stretch
-	const float HORIZONTAL_SQUEEZE = 0.4f;     // Less horizontal squeeze
-	float squashStretchTimer = 0.0f;
-	bool isSquashing = false;
-	Vector3 originalScale = { 1.0f, 1.0f, 1.0f };
-	Vector3 currentScale = { 1.0f, 1.0f, 1.0f };  // Add this to track current scale
-	const float SCALE_TRANSITION_SPEED = 10.0f;    // Speed of scale transitions
-	float targetYPosition = 0.5f;                  // Target Y position when standing
-
-	// Initial cube position should have its base on the ground
-	cubeTransform.translation.y = GROUND_Y + CUBE_HALF_SIZE;
+	// Initial cube position
+	cubeTransform.translation.y = 0.5f;
 
 	SetTargetFPS(60);
 
@@ -129,115 +107,8 @@ int main(void)
 		camera.position.y = camera.target.y + cameraDistance * sinf(cameraAngleY);
 		camera.position.z = camera.target.z + cameraDistance * cosf(cameraAngleY) * cosf(cameraAngleX);
 
-		// Handle jump and gravity
-		if (!isAnimating) { // Only allow jumping when not moving horizontally
-			if (IsKeyPressed(KEY_SPACE) && !isJumping) {
-				verticalVelocity = JUMP_FORCE;
-				isJumping = true;
-				hasMovedInAir = false;
-				isSquashing = true;
-				squashStretchTimer = 0.0f;
-			}
-		}
-
-		// Update squash and stretch animation
-		Vector3 targetScale = originalScale;  // Default target scale
-
-		if (isSquashing) {
-			squashStretchTimer += deltaTime;
-			if (squashStretchTimer < SQUASH_DURATION) {
-				// Initial squash when jumping
-				float squashProgress = squashStretchTimer / SQUASH_DURATION;
-				float squashFactor = 1.0f - SQUASH_AMOUNT * (1.0f - squashProgress);
-				float stretchFactor = 1.0f + SQUASH_AMOUNT * (1.0f - squashProgress);
-				targetScale = (Vector3){ stretchFactor, squashFactor, stretchFactor };
-			} else {
-				isSquashing = false;
-				squashStretchTimer = 0.0f;
-			}
-		} else if (isJumping) {
-			// Dynamic stretch based on vertical velocity
-			float velocityFactor = fabsf(verticalVelocity) / JUMP_FORCE;
-			float stretchAmount = STRETCH_AMOUNT * velocityFactor;
-			
-			if (verticalVelocity > 0) {
-				// Stretching upward during ascent - more dramatic vertical stretch
-				targetScale = (Vector3){ 
-					1.0f - (stretchAmount * HORIZONTAL_SQUEEZE),      // Subtle horizontal squeeze
-					1.0f + (stretchAmount * VERTICAL_STRETCH_MULT),   // Much taller vertically
-					1.0f - (stretchAmount * HORIZONTAL_SQUEEZE)       // Subtle horizontal squeeze
-				};
-			} else {
-				// Stretching horizontally during descent - more subtle
-				targetScale = (Vector3){ 
-					1.0f + (stretchAmount * 0.5f),          // Less horizontal stretch
-					1.0f - (stretchAmount * 0.8f),          // Less vertical squash
-					1.0f + (stretchAmount * 0.5f)           // Less horizontal stretch
-				};
-			}
-		}
-
-		// This code smoothly transitions the cube's scale between different states
-		// transitionSpeed controls how fast the scale changes based on time
-		float transitionSpeed = SCALE_TRANSITION_SPEED * deltaTime;
-		
-		// Gradually move each scale component (x,y,z) towards its target value
-		// The difference between target and current is multiplied by transition speed
-		currentScale.x += (targetScale.x - currentScale.x) * transitionSpeed;
-		currentScale.y += (targetScale.y - currentScale.y) * transitionSpeed; 
-		currentScale.z += (targetScale.z - currentScale.z) * transitionSpeed;
-		
-		// Apply the interpolated scale to the cube's transform
-		cubeTransform.scale = currentScale;
-
-		if (isJumping) {
-			// Apply gravity and update position
-			verticalVelocity += GRAVITY * deltaTime;
-			float nextY = cubeTransform.translation.y + verticalVelocity * deltaTime;
-			
-			// Calculate the position of the cube's base (center position - half height)
-			float baseY = nextY - (0.5f * cubeTransform.scale.y);
-			
-			// Check if the base of the cube would go below the ground
-			if (baseY <= 0.0f) {
-				// Position the cube so its base is exactly at ground level
-				cubeTransform.translation.y = 0.5f * cubeTransform.scale.y;
-				verticalVelocity = 0.0f;
-				isJumping = false;
-				hasMovedInAir = false;
-				isSquashing = true; // Start landing squash
-				squashStretchTimer = 0.0f;
-				// Set target Y position based on current scale
-				targetYPosition = 0.5f * cubeTransform.scale.y;
-			} else {
-				// Update position normally
-				cubeTransform.translation.y = nextY;
-			}
-		} else if (!isSquashing) {
-			// Reset scale when not jumping or squashing
-			cubeTransform.scale = originalScale;
-			// Update target position based on current scale
-			targetYPosition = 0.5f * cubeTransform.scale.y;
-			
-			// Smoothly interpolate to the correct height while keeping base at ground level
-			if (!isJumping) {
-				float yDiff = targetYPosition - cubeTransform.translation.y;
-				// Use smoother interpolation
-				float smoothFactor = 1.0f - powf(0.001f, deltaTime); // Exponential smoothing
-				float nextY = cubeTransform.translation.y + yDiff * smoothFactor;
-				
-				// Ensure the base never goes below ground
-				float baseY = nextY - (0.5f * cubeTransform.scale.y);
-				if (baseY < 0.0f) {
-					nextY = 0.5f * cubeTransform.scale.y;
-				}
-				
-				cubeTransform.translation.y = nextY;
-			}
-		}
-
 		// Handle W key press to start animation
-		if (!isAnimating && !isJumping) {  // Only allow movement when not jumping and not already animating
+		if (!isAnimating) {  // Only allow movement when not already animating
 			if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_S) || IsKeyPressed(KEY_A) || IsKeyPressed(KEY_D)) {
 				isAnimating = true;
 				animationTime = 0.0f;
