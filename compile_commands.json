@@ -1,0 +1,12 @@
+[
+    {
+        "directory": "d:/playground/raylib/trayimg",
+        "command": "g++ -target x86_64-pc-windows-gnu -Wall -Wextra -Id:/playground/raylib/trayimg/raylib/src -Id:/playground/raylib/trayimg/rlImgui/src -Id:/playground/raylib/trayimg/rlGizmo -o main main.o -lraylib -lgdi32 -lwinmm",
+        "file": "d:/playground/raylib/trayimg/main.cpp"
+    },
+	{
+        "directory": "d:/playground/raylib/trayimg",
+        "command": "g++ -target x86_64-pc-windows-gnu -Wall -Wextra -Id:/playground/raylib/trayimg/raylib/src -Id:/playground/raylib/trayimg/rlImgui/src -Id:/playground/raylib/trayimg/rlImGui/imgui -isystem C:/mingw-w64/x86_64-8.1.0-win32-seh-rt_v6-rev0/mingw64/include -o trayimg trayimg.o -lraylib -lrlImGui -lgdi32 -lwinmm",
+        "file": "d:/playground/raylib/trayimg/trayimg.cpp"
+    }
+]
