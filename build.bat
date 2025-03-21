@@ -1,13 +1,14 @@
+@echo off
+del .\rolling-cube.exe
+@echo on
+g++ -g -Wall rolling-cube.cpp -o rolling-cube.exe -I./rlImGui/src -I ./rlImGui/imgui -I ./rlImGui/imgui/backends -I ./raylib/src -L./rlImGui/src -L./raylib/src -lrlImGui -lraylib -lgdi32 -lwinmm
+@echo off
+.\rolling-cube.exe
 rem -Wextra
 
-del .\main.exe
-g++ -g -Wall main.cpp -o main.exe -I./rlImGui/src -I ./rlImGui/imgui -I ./rlImGui/imgui/backends -I ./raylib/src -L./rlImGui/src -L./raylib/src -lrlImGui -lraylib -lgdi32 -lwinmm
-.\main.exe
-
-
-rem del .\cube.exe
-rem g++ -g -Wall cube.cpp -o cube.exe -I./rlImGui/src -I ./rlImGui/imgui -I ./rlImGui/imgui/backends -I ./raylib/src -L./rlImGui/src -L./raylib/src -lrlImGui -lraylib -lgdi32 -lwinmm
-rem .\cube.exe
+rem del .\main.exe
+rem g++ -g -Wall main.cpp -o main.exe -I./rlImGui/src -I ./rlImGui/imgui -I ./rlImGui/imgui/backends -I ./raylib/src -L./rlImGui/src -L./raylib/src -lrlImGui -lraylib -lgdi32 -lwinmm
+rem .\main.exe
 
 
 rem del .\trayimg.exe
