@@ -13,7 +13,7 @@ struct Cube {
     Vector3 targetPosition;
     Vector3 direction;
 	Vector3 moveStep;
-
+	
     Vector3 rotationAxis;
     Vector3 rotationOrigin;
     float rotationAngle;
@@ -27,24 +27,25 @@ struct Cube {
 Cube cube;
 
 Vector3 cubeInitPos = {0.5f, 0.5f, 0.5f};
-
+float normalSpeed = 2.5f;
+float fastSpeed = 4.5f;
 void initCube() {
-    cube = {
-        .position = cubeInitPos,
-        .targetPosition = cubeInitPos,
-        .direction = {-1.0f, 0.0f, 0.0f},
-        .moveStep = {0.0f, 0.0f, 0.0f},
-
-        .rotationAxis = {0.0f, 0.0f, 1.0f},
-        .rotationOrigin = {0.0f, 0.0f, 1.0f},
-        .rotationAngle = 0.0f,
-        .targetAngle = 0.0f,
-        .transform = MatrixIdentity(),
+	cube = {
+		.position = cubeInitPos,
+		.targetPosition = cubeInitPos,
+		.direction = {-1.0f, 0.0f, 0.0f},
+		.moveStep = {0.0f, 0.0f, 0.0f},
+	
+		.rotationAxis = {0.0f, 0.0f, 1.0f},
+		.rotationOrigin = {0.0f, 0.0f, 1.0f},
+		.rotationAngle = 0.0f,
+		.targetAngle = 0.0f,
+		.transform = MatrixIdentity(),
     
-        .isMoving = false,
-        .animationProgress = 0.0f,
-        .animationSpeed = 2.0f
-    };
+		.isMoving = false,
+		.animationProgress = 0.0f,
+		.animationSpeed = normalSpeed,
+	};
 }
 
 struct CubeCamera {
@@ -100,6 +101,16 @@ Mouse mouse = {
 	.deltaPosition = {0.0f, 0.0f},
 };
 
+struct Keyboard {
+	int pressedKey;
+	bool hasQueuedKey;	
+	int queuedKey;
+};
+Keyboard keyboard = {
+    // .pressedKey = 0,
+	.hasQueuedKey = false,
+    .queuedKey = 0,
+};
 
 void mouseUpdateCameraAngles() {
 	mouse.deltaPosition = { 0.0f, 0.0f };
@@ -126,18 +137,18 @@ void mouseUpdateCubeDirection() {
 		0.0f,
 		camera.c3d.target.z - camera.c3d.position.z
 	};
-	float length = sqrtf(camera.direction.x * camera.direction.x + camera.direction.z * camera.direction.z);
-	camera.direction.x /= length;
-	camera.direction.z /= length;
+float length = sqrtf(camera.direction.x * camera.direction.x + camera.direction.z * camera.direction.z);
+		camera.direction.x /= length;
+		camera.direction.z /= length;
 
-	// Calculate dot products with world axes
-	float dotX = fabsf(camera.direction.x);  // Dot product with (1,0,0)
-	float dotZ = fabsf(camera.direction.z);  // Dot product with (0,0,1)
+		// Calculate dot products with world axes
+		float dotX = fabsf(camera.direction.x);  // Dot product with (1,0,0)
+		float dotZ = fabsf(camera.direction.z);  // Dot product with (0,0,1)
 
-	// Determine movement direction based on camera orientation
-	cube.direction = { 0.0f, 0.0f, 0.0f };
-	if (dotX > dotZ) {
-		// Camera is more aligned with X axis
+		// Determine movement direction based on camera orientation
+		cube.direction = { 0.0f, 0.0f, 0.0f };
+		if (dotX > dotZ) {
+			// Camera is more aligned with X axis
 		cube.direction.x = (camera.direction.x > 0) ? 1.0f : -1.0f;
 	} else {
 		// Camera is more aligned with Z axis
@@ -268,18 +279,19 @@ void calculateCubeMovement(int pressedKey) {
                 
 	cube.rotationAngle = 0.0f;
 	cube.targetAngle = PI/2.0f; // 90 degrees in radians
-	cube.isMoving = true;
 	cube.animationProgress = 0.0f;
+	cube.isMoving = true;
 }
 
-void updateCubeAnimaton(float delta) {
+void updateCubeMovement(float delta) {
+
 	cube.animationProgress += delta * cube.animationSpeed;
 
 	// Use smooth easing for animation
 	float t = cube.animationProgress;
 	float smoothT = t * t * (3.0f - 2.0f * t); // Smoothstep formula
                     
-	// Calculate current rotation angle
+// Calculate current rotation angle
 	cube.rotationAngle = cube.targetAngle * smoothT;
                     
 	Matrix translateToOrigin = MatrixTranslate(-cube.rotationOrigin.x, 
@@ -304,7 +316,7 @@ void updateCubeAnimaton(float delta) {
 
 void drawRollingCube() {
 
-	DrawCubeWiresV(cube.position, (Vector3){1.0f, 1.0f, 1.0f}, BLUE);
+	// DrawCubeWiresV(cube.position, (Vector3){1.0f, 1.0f, 1.0f}, BLUE);
   
 	if (cube.isMoving) {
 			
@@ -348,23 +360,33 @@ int main()
 
         handleMouseButton();
         handleMouseWheel();
-
-        int pressedKey =
+		
+		int pressedKey =
 			IsKeyPressed(KEY_W) ? KEY_W :
 			IsKeyPressed(KEY_S) ? KEY_S :
 			IsKeyPressed(KEY_A) ? KEY_A :
 			IsKeyPressed(KEY_D) ? KEY_D : 0;
 
+		cube.animationSpeed = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)
+			? fastSpeed : normalSpeed;
+		
 		if (pressedKey) {
 			if (!cube.isMoving) {
 				calculateCubeMovement(pressedKey);
+			} else {
+				keyboard.hasQueuedKey = true;
+				keyboard.queuedKey = pressedKey;
 			}
 		}
 
 		if (cube.isMoving) {
-			updateCubeAnimaton(delta);
+			updateCubeMovement(delta);
+		} else if (keyboard.hasQueuedKey) {
+			calculateCubeMovement(keyboard.queuedKey);
+			updateCubeMovement(delta);
+			keyboard.hasQueuedKey = false;
 		}
-
+		
 				
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
