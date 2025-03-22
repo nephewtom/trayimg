@@ -5,7 +5,7 @@
 #include <math.h>
 #include <stdarg.h>
 
-Vector2 fullHD = { 1920, 1080 };
+Vector2 fullHD = { 1280, 720 };
 float screenWidth = fullHD.x;
 float screenHeight = fullHD.y;
 
