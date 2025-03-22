@@ -12,6 +12,7 @@ struct Cube {
     Vector3 position;
     Vector3 targetPosition;
     Vector3 direction;
+	Vector3 moveStep;
 
     Vector3 rotationAxis;
     Vector3 rotationOrigin;
@@ -32,6 +33,7 @@ void initCube() {
         .position = cubeInitPos,
         .targetPosition = cubeInitPos,
         .direction = {-1.0f, 0.0f, 0.0f},
+        .moveStep = {0.0f, 0.0f, 0.0f},
 
         .rotationAxis = {0.0f, 0.0f, 1.0f},
         .rotationOrigin = {0.0f, 0.0f, 1.0f},
@@ -55,13 +57,13 @@ struct CubeCamera {
 CubeCamera camera;
 
 void initCamera() {
-    camera.c3d = {
-		.position = (Vector3){ 6.0f, 6.0f, 2.0f },
-		.target = cubeInitPos,
-		.up = (Vector3) { 0.0f, 1.0f, 0.0f },
-		.fovy = 45.0f,
-		.projection = CAMERA_PERSPECTIVE,
-	};
+  camera.c3d = {
+	  .position = (Vector3){6.0f, 6.0f, 2.0f},
+	  .target = cubeInitPos,
+	  .up = (Vector3){0.0f, 1.0f, 0.0f},
+	  .fovy = 45.0f,
+	  .projection = CAMERA_PERSPECTIVE,
+  };
 
 	// Camera orbit parameters
     Vector3 cameraOffset = { 
@@ -77,10 +79,12 @@ void initCamera() {
 	camera.angleY = asinf(cameraOffset.y / camera.distance);
 }
 
-void updateCamera()  {
-    // Update camera position based on angles and cube position
-    camera.c3d.target = cubeInitPos;  // Camera looks at ground level
-    camera.c3d.position.x = camera.c3d.target.x + camera.distance * cosf(camera.angleY) * sinf(camera.angleX);
+void updateCamera(float delta) {
+
+	// Update camera position based cube position on angles from mouse
+	camera.c3d.target = Vector3Lerp(camera.c3d.target, cube.targetPosition, cube.animationSpeed * delta);
+
+	camera.c3d.position.x = camera.c3d.target.x + camera.distance * cosf(camera.angleY) * sinf(camera.angleX);
     camera.c3d.position.y = camera.c3d.target.y + camera.distance * sinf(camera.angleY);
     camera.c3d.position.z = camera.c3d.target.z + camera.distance * cosf(camera.angleY) * cosf(camera.angleX);
 }
@@ -96,55 +100,64 @@ Mouse mouse = {
 	.deltaPosition = {0.0f, 0.0f},
 };
 
-const float MIN_CAMERA_DISTANCE = 5.0f;  // Minimum zoom distance
-const float MAX_CAMERA_DISTANCE = 20.0f;  // Maximum zoom distance
-const float ZOOM_SPEED = 1.0f;           // Zoom sensitivity
+
+void mouseUpdateCameraAngles() {
+	mouse.deltaPosition = { 0.0f, 0.0f };
+	mouse.position = GetMousePosition();
+            
+	if (mouse.prevPosition.x != 0.0f || mouse.prevPosition.y != 0.0f) {
+		mouse.deltaPosition.x = mouse.position.x - mouse.prevPosition.x;
+		mouse.deltaPosition.y = mouse.position.y - mouse.prevPosition.y;
+	}
+	mouse.prevPosition = mouse.position;
+            
+	// Update camera angles based on mouse movement
+	camera.angleX -= mouse.deltaPosition.x * 0.003f;
+	// camera.angleY = fmax(fmin(camera.angleY + mouse.deltaPosition.y * 0.003f, PI / 2.0f), -PI / 2.0f);
+	camera.angleY = camera.angleY + mouse.deltaPosition.y * 0.003f;
+	camera.angleY = Clamp(camera.angleY, 0.1f, PI/2 - 0.3f);
+
+}
+
+void mouseUpdateCubeDirection() {
+	// Calculate camera direction vector (normalized)
+	camera.direction = {
+		camera.c3d.target.x - camera.c3d.position.x,
+		0.0f,
+		camera.c3d.target.z - camera.c3d.position.z
+	};
+	float length = sqrtf(camera.direction.x * camera.direction.x + camera.direction.z * camera.direction.z);
+	camera.direction.x /= length;
+	camera.direction.z /= length;
+
+	// Calculate dot products with world axes
+	float dotX = fabsf(camera.direction.x);  // Dot product with (1,0,0)
+	float dotZ = fabsf(camera.direction.z);  // Dot product with (0,0,1)
+
+	// Determine movement direction based on camera orientation
+	cube.direction = { 0.0f, 0.0f, 0.0f };
+	if (dotX > dotZ) {
+		// Camera is more aligned with X axis
+		cube.direction.x = (camera.direction.x > 0) ? 1.0f : -1.0f;
+	} else {
+		// Camera is more aligned with Z axis
+		cube.direction.z = (camera.direction.z > 0) ? 1.0f : -1.0f;
+	}
+}
+
 void handleMouseButton() {
-    // Update camera position when right mouse button is held
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
-        mouse.deltaPosition = { 0.0f, 0.0f };
-        mouse.position = GetMousePosition();
-            
-        if (mouse.prevPosition.x != 0.0f || mouse.prevPosition.y != 0.0f) {
-            mouse.deltaPosition.x = mouse.position.x - mouse.prevPosition.x;
-            mouse.deltaPosition.y = mouse.position.y - mouse.prevPosition.y;
-        }
-            
-        // Update camera angles based on mouse movement
-        camera.angleX -= mouse.deltaPosition.x * 0.003f;
-        camera.angleY = fmax(fmin(camera.angleY + mouse.deltaPosition.y * 0.003f, PI/2.0f), -PI/2.0f);
-
-        mouse.prevPosition = mouse.position;
+		mouseUpdateCameraAngles();
+		mouseUpdateCubeDirection();
 			
-        // Calculate camera direction vector (normalized)
-        camera.direction = {
-            camera.c3d.target.x - camera.c3d.position.x,
-            0.0f,
-            camera.c3d.target.z - camera.c3d.position.z
-        };
-        float length = sqrtf(camera.direction.x * camera.direction.x + camera.direction.z * camera.direction.z);
-        camera.direction.x /= length;
-        camera.direction.z /= length;
-
-        // Calculate dot products with world axes
-        float dotX = fabsf(camera.direction.x);  // Dot product with (1,0,0)
-        float dotZ = fabsf(camera.direction.z);  // Dot product with (0,0,1)
-
-        // Determine movement direction based on camera orientation
-        cube.direction = { 0.0f, 0.0f, 0.0f };
-        if (dotX > dotZ) {
-            // Camera is more aligned with X axis
-            cube.direction.x = (camera.direction.x > 0) ? 1.0f : -1.0f;
-        } else {
-            // Camera is more aligned with Z axis
-            cube.direction.z = (camera.direction.z > 0) ? 1.0f : -1.0f;
-        }
-			
-    } else {
+	} else {
         mouse.prevPosition = (Vector2){ 0.0f, 0.0f };
     }
 }
 
+const float MIN_CAMERA_DISTANCE = 5.0f;  // Minimum zoom distance
+const float MAX_CAMERA_DISTANCE = 20.0f;  // Maximum zoom distance
+const float ZOOM_SPEED = 1.0f;           // Zoom sensitivity
 void handleMouseWheel() {
     // Handle mouse wheel for zoom
     float mouseWheel = GetMouseWheelMove();
@@ -174,38 +187,84 @@ void drawAxis() {
     DrawCylinderEx((Vector3){0, 0, axisLength}, (Vector3){0, 0, axisLength + coneLength}, coneRadius, 0.0f, 8, BLUE);
 }
 
+void moveNegativeX() {
+	cube.moveStep = { -1.0f, 0.0f, 0.0f };
+	cube.rotationAxis = (Vector3){0.0f, 0.0f, 1.0f};
+	cube.rotationOrigin.x = cube.position.x - 0.5f; // Left edge
+	cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
+	cube.rotationOrigin.z = cube.position.z;
+}
+void movePositiveX() {
+	cube.moveStep = { 1.0f, 0.0f, 0.0f };
+	cube.rotationAxis = (Vector3){0.0f, 0.0f, -1.0f};
+	cube.rotationOrigin.x = cube.position.x + 0.5f; // Right edge
+	cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
+	cube.rotationOrigin.z = cube.position.z;
+}
+void moveNegativeZ() {
+	cube.moveStep = { 0.0f, 0.0f, -1.0f };
+	cube.rotationAxis = (Vector3){-1.0f, 0.0f, 0.0f};
+	cube.rotationOrigin.x = cube.position.x;
+	cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
+	cube.rotationOrigin.z = cube.position.z - 0.5f; // Front edge
+}
+void movePositiveZ() {
+	cube.moveStep = { 0.0f, 0.0f, 1.0f };
+	cube.rotationAxis = (Vector3){1.0f, 0.0f, 0.0f};
+	cube.rotationOrigin.x = cube.position.x;
+	cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
+	cube.rotationOrigin.z = cube.position.z + 0.5f; // Back edge
+}
+
 
 void calculateCubeMovement(int pressedKey) {
-	Vector3 direction = { 0.0f, 0.0f, 0.0f };
-                
-	if (pressedKey == KEY_W) {
-		direction.z = -1.0f;
-		cube.rotationAxis = (Vector3){-1.0f, 0.0f, 0.0f};
-		cube.rotationOrigin.x = cube.position.x;
-		cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
-		cube.rotationOrigin.z = cube.position.z - 0.5f; // Front edge
-	} else if (pressedKey == KEY_S) {
-		direction.z = 1.0f;
-		cube.rotationAxis = (Vector3){1.0f, 0.0f, 0.0f};
-		cube.rotationOrigin.x = cube.position.x;
-		cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
-		cube.rotationOrigin.z = cube.position.z + 0.5f; // Back edge
-	} else if (pressedKey == KEY_A) {
-		direction.x = -1.0f;
-		cube.rotationAxis = (Vector3){0.0f, 0.0f, 1.0f};
-		cube.rotationOrigin.x = cube.position.x - 0.5f; // Left edge
-		cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
-		cube.rotationOrigin.z = cube.position.z;
-	} else if (pressedKey == KEY_D) {
-		direction.x = 1.0f;
-		cube.rotationAxis = (Vector3){0.0f, 0.0f, -1.0f};
-		cube.rotationOrigin.x = cube.position.x + 0.5f; // Right edge
-		cube.rotationOrigin.y = cube.position.y - 0.5f; // Bottom edge
-		cube.rotationOrigin.z = cube.position.z;
+
+	if (cube.direction.x == -1.0f) {
+		if (pressedKey == KEY_W) {
+			moveNegativeX();
+		} else if (pressedKey == KEY_S) {
+			movePositiveX();
+		} else if (pressedKey == KEY_A) {
+			movePositiveZ();
+		} else if (pressedKey == KEY_D) {
+			moveNegativeZ();
+		}
+	} else if (cube.direction.x == 1.0f) {
+		if (pressedKey == KEY_W) {
+			movePositiveX();
+		} else if (pressedKey == KEY_S) {
+			moveNegativeX();
+		} else if (pressedKey == KEY_A) {
+			moveNegativeZ();
+		} else if (pressedKey == KEY_D) {
+			movePositiveZ();
+		}
+		
+	} else if (cube.direction.z == 1.0f) {
+		if (pressedKey == KEY_W) {
+			movePositiveZ();
+		} else if (pressedKey == KEY_S) {
+			moveNegativeZ();
+		} else if (pressedKey == KEY_A) {
+			movePositiveX();
+		} else if (pressedKey == KEY_D) {
+			moveNegativeX();
+		}
+	} else if (cube.direction.z == -1.0f) {
+		if (pressedKey == KEY_W) {
+			moveNegativeZ();
+		} else if (pressedKey == KEY_S) {
+			movePositiveZ();
+		} else if (pressedKey == KEY_A) {
+			moveNegativeX();
+		} else if (pressedKey == KEY_D) {
+			movePositiveX();
+		}
 	}
-	cube.targetPosition.x = cube.position.x + direction.x;
-	cube.targetPosition.y = cube.position.y + direction.y;
-	cube.targetPosition.z = cube.position.z + direction.z;
+
+	cube.targetPosition.x = cube.position.x + cube.moveStep.x;
+	cube.targetPosition.y = cube.position.y + cube.moveStep.y;
+	cube.targetPosition.z = cube.position.z + cube.moveStep.z;
                 
 	cube.rotationAngle = 0.0f;
 	cube.targetAngle = PI/2.0f; // 90 degrees in radians
@@ -289,15 +348,14 @@ int main()
 
         handleMouseButton();
         handleMouseWheel();
-        updateCamera();
 
         int pressedKey =
-            IsKeyPressed(KEY_W) ? KEY_W :
-            IsKeyPressed(KEY_S) ? KEY_S :
-            IsKeyPressed(KEY_A) ? KEY_A :
-            IsKeyPressed(KEY_D) ? KEY_D : 0;
+			IsKeyPressed(KEY_W) ? KEY_W :
+			IsKeyPressed(KEY_S) ? KEY_S :
+			IsKeyPressed(KEY_A) ? KEY_A :
+			IsKeyPressed(KEY_D) ? KEY_D : 0;
 
-        if (pressedKey) {
+		if (pressedKey) {
 			if (!cube.isMoving) {
 				calculateCubeMovement(pressedKey);
 			}
@@ -307,15 +365,17 @@ int main()
 			updateCubeAnimaton(delta);
 		}
 
+				
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
 
 		BeginMode3D(camera.c3d);
+		updateCamera(delta);
 
 		DrawGrid(100, 1.0f);
 		drawAxis();
-		DrawCube({-3.0f, 0.0f, 2.0f}, 1.0f, 1.0f, 1.0f, BLUE);
-		DrawCubeWires({-3.0f, 0.0f, 2.0f}, 1.0f, 1.0f, 1.0f, GREEN);
+		DrawCube({-3.5f, 0.5f, 2.5f}, 1.0f, 1.0f, 1.0f, BLUE);
+		DrawCubeWires({-3.5f, 0.5f, 2.5f}, 1.0f, 1.0f, 1.0f, GREEN);
 
 		drawRollingCube();
 		EndMode3D();
@@ -334,17 +394,28 @@ int main()
                             cube.position.x,
                             cube.position.y,
                             cube.position.z), 10, 10, 20, BLACK);
-
+        DrawText(TextFormat("cube.targetPosition: {%.2f, %.2f, %.2f}",
+                            cube.targetPosition.x,
+							cube.targetPosition.y,
+							cube.targetPosition.z), 10, 30, 20, BLACK);
         DrawText(TextFormat("cube.rotationAxis: {%.2f, %.2f, %.2f}",
                             cube.rotationAxis.x,
                             cube.rotationAxis.y,
-                            cube.rotationAxis.z), 10, 30, 20, BLACK);
+                            cube.rotationAxis.z), 10, 50, 20, BLACK);
 
         DrawText(TextFormat("cube.direction: {%.2f, %.2f, %.2f}",
-                            cube.direction.x, cube.direction.y,
-                            cube.direction.z), 10, 50, 20, BLACK);
+                            cube.direction.x,
+                            cube.direction.y,
+                            cube.direction.z), 10, 70, 20, BLACK);
 
-        // DrawText(TextFormat("rotationAngle: %.0f", rotationAngle), 10, 70, 20, BLACK);
+        DrawText(TextFormat("rotationAngle: %.0f", cube.rotationAngle*RAD2DEG), 10, 90, 20, BLACK);
+        DrawText(TextFormat("camera.target: {%.2f, %.2f, %.2f}",
+                            camera.c3d.target.x,
+                            camera.c3d.target.y,
+							camera.c3d.target.z), 10, 130, 20, BLACK);
+
+        DrawText(TextFormat("camera.angleX: %.2f", camera.angleX*RAD2DEG), 10, 150, 20, BLACK);
+        DrawText(TextFormat("camera.angleY: %.2f", camera.angleY*RAD2DEG), 10, 170, 20, BLACK);
 
         EndDrawing();
     }
