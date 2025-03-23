@@ -28,22 +28,31 @@ If you pick LLVM package you will also get LLVM Compiler infrastructure.
 Add the compiler bin/ directory to you Windows PATH.
 
 #### Compile raylib & rlImGui ####
-
 ``` shell
 .\preBuild.bat
 ```
 
 #### Compile and run the basic example ####
-
 ``` shell
 .\build.bat
 ```
 
 ### Linux ###
-
-TODO
+#### Compile raylib & rlImGui ####
+``` shell
+.\preBuild.sh
+```
+#### Compile and run the basic example ####
+``` shell
+.\build.sh
+```
 
 ### MacOS ###
-
-TODO
-
+#### Compile raylib & rlImGui ####
+``` shell
+.\preBuild.sh
+```
+#### Compile and run the basic example ####
+``` shell
+.\build-mac.sh
+```
